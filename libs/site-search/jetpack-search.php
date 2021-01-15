@@ -86,6 +86,7 @@ class Jetpack_Search {
 		wp_die( "Please don't __wakeup WPCOM_elasticsearch" ); }
 
 	public static function instance() {
+		error_log( __FILE__ . ' instance()' );
 		if ( ! isset( self::$instance ) ) {
 			self::$instance = new Jetpack_Search();
 			self::$instance->setup();
@@ -490,6 +491,8 @@ class Jetpack_Search {
 		// This filter is harder to use if you're unfamiliar with ES but it allows complete control over the query
 		$es_query_args      = apply_filters( 'jetpack_search_es_query_args', $es_query_args, $query );
 		$this->search_query = $es_query_args;
+
+		error_log( var_export( $es_query_args, true ) );
 
 		// Do the actual search query!
 		$this->search_result = $this->search( $es_query_args );

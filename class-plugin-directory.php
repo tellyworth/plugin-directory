@@ -60,6 +60,9 @@ class Plugin_Directory {
 		// Cron tasks.
 		new Jobs\Manager();
 
+		// Search customization
+		Plugin_Search::instance();
+
 		// Add upload size limit to limit plugin ZIP file uploads to 10M
 		add_filter( 'upload_size_limit', function( $size ) {
 			return 10 * MB_IN_BYTES;
@@ -79,10 +82,12 @@ class Plugin_Directory {
 		add_filter( 'wp_insert_post_data', array( $this, 'filter_wp_insert_post_data' ), 10, 2 );
 
 		add_filter( 'jetpack_active_modules', function( $modules ) {
-			// Disable Jetpack Search
-			if ( false !== ( $i = array_search( 'search', $modules ) ) ) {
-				unset( $modules[$i] );
-			}
+			#// Disable Jetpack Search
+			#if ( false !== ( $i = array_search( 'search', $modules ) ) ) {
+			#	unset( $modules[$i] );
+			#}
+			// Make sure Jetpack Search is enabled
+			$modules[] = 'search';
 
 			// Disable Jetpack Sitemaps on Rosetta sites.
 			if ( !empty( $GLOBALS['rosetta'] ) ) {
@@ -91,7 +96,7 @@ class Plugin_Directory {
 				}
 			}
 
-			return $modules;
+			return array_unique( $modules );
 		} );
 
 /*
@@ -562,7 +567,7 @@ class Plugin_Directory {
 		add_filter( 'get_the_excerpt', array( $this, 'translate_post_excerpt' ), 1, 2 );
 
 		// Instantiate our copy of the Jetpack_Search class.
-		if (
+		if ( false && // TODO: disabled while we're testing the new search class
 			class_exists( 'Jetpack' ) &&
 			\Jetpack::get_option( 'id' ) && // Don't load in Meta Environments
 			! class_exists( 'Jetpack_Search' ) &&
@@ -1287,9 +1292,11 @@ class Plugin_Directory {
 
 		// We've disabled WordPress's default 404 redirects, so we'll handle them ourselves.
 		if ( is_404() ) {
+			error_log( '404 redirect!' );
 
 			// [1] => plugins [2] => example-plugin-name [3..] => random().
 			$path = explode( '/', $_SERVER['REQUEST_URI'] );
+			error_log( var_export( $path, true ) );
 
 			if ( 'tags' === $path[2] ) {
 				if ( isset( $path[3] ) && ! empty( $path[3] ) ) {
