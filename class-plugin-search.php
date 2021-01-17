@@ -8,6 +8,7 @@ namespace WordPressdotorg\Plugin_Directory;
  **/
 class Plugin_Search {
 
+	// Set this to true to disable the new class and use the old jetpack-search.php code.
 	const USE_OLD_SEARCH = false;
 
 	/**
