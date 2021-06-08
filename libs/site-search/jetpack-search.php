@@ -97,9 +97,7 @@ class Jetpack_Search {
 	public function setup() {
 		// TODO: only enable if this site is public (otherwise we don't have content)
 		// TODO: check that the module is activated
-		if ( class_exists( 'Jetpack' ) ) {
-			$this->jetpack_blog_id = Jetpack::get_option( 'id' );
-		}
+		$this->jetpack_blog_id = Jetpack::get_option( 'id' );
 
 		if ( ! is_admin() ) {
 			$this->init_hooks();
