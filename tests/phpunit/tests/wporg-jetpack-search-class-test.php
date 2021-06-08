@@ -6,11 +6,12 @@ require_once( dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/libs/site
 
 class TestJetpackSearchClass extends WP_UnitTestCase {
 
-	protected $jetpack_class;
+	protected $jetpack_search;
 
 	function setUp(): void {
-		if ( is_null( $this->jetpack_class ) ) {
-			$this->jetpack_class = Jetpack_Search::instance();
+		if ( is_null( $this->jetpack_search ) ) {
+			require_once( ABSPATH . 'wp-content/plugins/jetpack/jetpack.php' );
+			$this->jetpack_search = Jetpack_Search::instance();
 		}
 
 		if ( !defined( 'WP_CORE_STABLE_BRANCH' ) ) {
@@ -124,7 +125,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 			],
 		];
 
-		$actual = $this->jetpack_class->convert_wp_es_to_es_args( [] );
+		$actual = $this->jetpack_search->convert_wp_es_to_es_args( [] );
 
 		$this->assertEquals( $expected, $actual );
 
@@ -142,7 +143,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 				array( 'term' => array( 'disabled' => array( 'value' => false ) ) ),
 			),
 		);
-		$actual = $this->jetpack_class->convert_wp_es_to_es_args( $es_wp_query_args );
+		$actual = $this->jetpack_search->convert_wp_es_to_es_args( $es_wp_query_args );
 		#$this->var_export( $actual );
 
 		$expected = [
