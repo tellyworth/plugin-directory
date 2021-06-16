@@ -50,7 +50,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							  0 => [
 								'exp' => [
 								  'plugin_modified' => [
-									'origin' => date( 'Y-m-d' ),
+									'origin' => 'YYYY-MM-DD',
 									'offset' => '180d',
 									'scale' => '360d',
 									'decay' => 0.5,
@@ -123,7 +123,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 					],
 					'filter' => [
 					  'match_all' =>
-					   (object) [
+					   [
 					  ],
 					],
 				]
@@ -224,7 +224,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							  0 => [
 								'exp' => [
 								  'plugin_modified' => [
-									'origin' => date('Y-m-d'),
+									'origin' => 'YYYY-MM-DD',
 									'offset' => '180d',
 									'scale' => '360d',
 									'decay' => 0.5,
@@ -312,13 +312,29 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 		];
 	}
 
+	public function normalize_es_arg_callback( &$item, $key ) {
+		// Change an empty object to an array, because assertSame rejects equivalent objects
+		if ( 'match_all' === $key && is_object( $item ) ) {
+			$item = [];
+		}
+		// Mask any dates
+		if ( is_string( $item ) && preg_match( '/^\d\d\d\d-\d\d-\d\d$/', $item ) ) {
+			$item = 'YYYY-MM-DD';
+		}
+
+	}
+	public function normalize_es_args( $args ) {
+		array_walk_recursive( $args, [ $this, 'normalize_es_arg_callback' ] );
+		return $args;
+	}
+
 	/**
 	 * @dataProvider data_wp_es_to_es_args
 	 */
 	public function test_convert_wp_es_to_es_args( $input, $expected ) {
 		$actual = $this->jetpack_search->convert_wp_es_to_es_args( $input );
 
-		$this->assertEquals( $expected, $actual );
+		$this->assertSame( $expected, $this->normalize_es_args( $actual ) );
 
 	}
 
