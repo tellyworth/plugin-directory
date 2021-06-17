@@ -1,17 +1,20 @@
 <?php
 
 use PHPUnit\Framework\TestCase;
+use WordPressdotorg\Plugin_Directory\Plugin_Search;
 
-require_once( dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/libs/site-search/jetpack-search.php' );
+#require_once( dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/libs/site-search/jetpack-search.php' );
 
 class TestJetpackSearchClass extends WP_UnitTestCase {
 
-	protected $jetpack_search;
+	protected $plugin_search;
 
 	function setUp(): void {
-		if ( is_null( $this->jetpack_search ) ) {
+		if ( is_null( $this->plugin_search ) ) {
 			require_once( ABSPATH . 'wp-content/plugins/jetpack/jetpack.php' );
-			$this->jetpack_search = Jetpack_Search::instance();
+			$this->plugin_search = Plugin_Search::instance();
+			$this->plugin_search->init();
+
 
 		}
 
@@ -509,13 +512,13 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 					],
 				  ],
 				],
-				1 => [
+/*				1 => [
 				  'term' => [
 					'disabled' => [
 					  'value' => false,
 					],
 				  ],
-				],
+				], */
 			  ],
 			],
 			'fields' => [

@@ -9,7 +9,7 @@ namespace WordPressdotorg\Plugin_Directory;
 class Plugin_Search {
 
 	// Set this to true to disable the new class and use the old jetpack-search.php code.
-	const USE_OLD_SEARCH = false;
+	const USE_OLD_SEARCH = true;
 
 	/**
 	 * Fetch the instance of the Plugin_Search class.
@@ -56,7 +56,8 @@ class Plugin_Search {
 	public function init() {
 		if ( self::USE_OLD_SEARCH ) {
 			// Instantiate our copy of the Jetpack_Search class.
-			if ( class_exists( 'Jetpack' ) && \Jetpack::get_option( 'id' ) && ! class_exists( 'Jetpack_Search' )
+			if ( class_exists( 'Jetpack' ) && ! class_exists( 'Jetpack_Search' )
+			#if ( class_exists( 'Jetpack' ) && \Jetpack::get_option( 'id' ) && ! class_exists( 'Jetpack_Search' )
 				&& ! isset( $_GET['s'] ) ) { // Don't run the ES query if we're going to redirect to the pretty search URL
 					require_once __DIR__ . '/libs/site-search/jetpack-search.php';
 					\Jetpack_Search::instance();
