@@ -20,6 +20,8 @@ require_once $_tests_dir . '/includes/functions.php';
  */
 function manually_load_plugin() {
 	require_once dirname( __FILE__ ) . '/../plugin-directory.php';
+	// Also load Jetpack, needed to test some features such as search
+	require_once dirname( __FILE__ ) . '/../../jetpack/jetpack.php';
 }
 if ( function_exists( 'tests_add_filter' ) ) {
 	tests_add_filter( 'muplugins_loaded', __NAMESPACE__ . '\manually_load_plugin' );
