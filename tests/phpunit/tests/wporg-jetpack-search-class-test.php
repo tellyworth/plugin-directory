@@ -338,7 +338,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 	 * @dataProvider data_wp_es_to_es_args
 	 */
 	public function test_convert_wp_es_to_es_args( $input, $expected ) {
-		$actual = Jetpack_Search::convert_wp_es_to_es_args( $input );
+		$actual = Jetpack_Search::instance()->convert_wp_es_to_es_args( $input );
 
 		$this->assertSame( $expected, $this->normalize_es_args( $actual ) );
 
