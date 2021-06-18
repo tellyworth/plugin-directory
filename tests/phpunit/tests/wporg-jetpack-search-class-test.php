@@ -3,8 +3,6 @@
 use PHPUnit\Framework\TestCase;
 use WordPressdotorg\Plugin_Directory\Plugin_Search;
 
-#require_once( dirname( dirname( dirname( dirname( __FILE__ ) ) ) ) . '/libs/site-search/jetpack-search.php' );
-
 class TestJetpackSearchClass extends WP_UnitTestCase {
 
 	protected $plugin_search;
@@ -21,6 +19,10 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 		if ( !defined( 'WP_CORE_STABLE_BRANCH' ) ) {
 			define( 'WP_CORE_STABLE_BRANCH', '5.0' );
 		}
+	}
+
+	function test_assumptions() {
+		$this->assertTrue( class_exists( 'Jetpack' ) );
 	}
 
 	function var_export($expression, $return=FALSE) {
@@ -335,8 +337,8 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 	/**
 	 * @dataProvider data_wp_es_to_es_args
 	 */
-	public function _test_convert_wp_es_to_es_args( $input, $expected ) {
-		$actual = $this->jetpack_search->convert_wp_es_to_es_args( $input );
+	public function test_convert_wp_es_to_es_args( $input, $expected ) {
+		$actual = Jetpack_Search::convert_wp_es_to_es_args( $input );
 
 		$this->assertSame( $expected, $this->normalize_es_args( $actual ) );
 
@@ -528,7 +530,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 			],
 		];
 
-		$search->expects( $this->once() )->method( 'search' )->with( $this->equalTo( $expects_args ) );
+		$search->expects( $this->once() )->method( 'search' )->with( $this->identicalTo( $expects_args ) );
 
 		// Construct a simple search query
 		$query = new WP_Query( [ 's' => 'a test search' ] );
@@ -536,7 +538,11 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 		$wp_the_query = $query; // so is_main_query() is true, otherwise the filter will short-circuit.
 
 		// Manually call the filter function, which should satisfy the expects() condition above.
-		$out = $search->filter__posts_request( $query->request, $query );
+		if ( method_exists( $search, 'filter__posts_pre_query' ) ) {
+			$out = $search->filter__posts_pre_query( $query->request, $query );
+		} else {
+			$out = $search->filter__posts_request( $query->request, $query );
+		}
 
 	}
 
