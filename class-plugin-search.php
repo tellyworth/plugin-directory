@@ -63,6 +63,8 @@ class Plugin_Search {
 					\Jetpack_Search::instance();
 			}
 		} else {
+			require_once( ABSPATH . 'wp-content/plugins/jetpack/modules/search/class.jetpack-search.php' );
+			require_once( ABSPATH . 'wp-content/plugins/jetpack/modules/search/class.jetpack-search-helpers.php' );
 			// $es_query_args = apply_filters( 'jetpack_search_es_query_args', $es_query_args, $query );
 			//
 			add_filter( 'jetpack_search_es_wp_query_args', array( $this, 'jetpack_search_es_wp_query_args' ), 10, 2 );
