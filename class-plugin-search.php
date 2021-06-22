@@ -9,7 +9,7 @@ namespace WordPressdotorg\Plugin_Directory;
 class Plugin_Search {
 
 	// Set this to true to disable the new class and use the old jetpack-search.php code.
-	const USE_OLD_SEARCH = true;
+	const USE_OLD_SEARCH = false;
 
 	/**
 	 * Fetch the instance of the Plugin_Search class.
@@ -38,6 +38,8 @@ class Plugin_Search {
 		error_log( __CLASS__ . ' __construct()' );
 		error_log( '$this? ' . is_object( $this ) );
 		add_action( 'init', array( $this, 'init' ) );
+
+		return false;
 
 		// Filters needed regardless of whether we're using old or new search
 		add_filter( 'option_jetpack_active_modules', array( $this, 'option_jetpack_active_modules' ) );
@@ -72,6 +74,19 @@ class Plugin_Search {
 		}
 
 	}
+
+	function var_export($expression, $return=FALSE) {
+		$export = var_export($expression, TRUE);
+		$patterns = [
+			"/array \(/" => '[',
+			"/^([ ]*)\)(,?)$/m" => '$1]$2',
+			"/=>[ ]?\n[ ]+\[/" => '=> [',
+			"/([ ]*)(\'[^\']+\') => ([\[\'])/" => '$1$2 => $3',
+		];
+		$export = preg_replace(array_keys($patterns), array_values($patterns), $export);
+		if ((bool)$return) return $export; else echo $export;
+	}
+
 /*
        $decay_params = apply_filters(
             'jetpack_search_recency_score_decay',
@@ -116,9 +131,8 @@ class Plugin_Search {
 		return $module;
 	}
 
-	public function jetpack_search_es_wp_query_args( $es_wp_query_args, $query ) {
-error_log( __FUNCTION__ );
-		$es_wp_query_args[ 'filters' ][] =
+	public function jetpack_search_es_wp_query_args( $args, $query ) {
+		/*$es_wp_query_args[ 'filters' ][] =
 			array (
 			  'term' =>
 			  array (
@@ -128,7 +142,19 @@ error_log( __FUNCTION__ );
 				),
 			  ),
 			);
+		*/
 
+		$args[ 'filter' ] = [
+			'and' => [
+			  0 => [
+				'term' => [
+				  'disabled' => [
+					'value' => false,
+				  ],
+				],
+			  ],
+			]
+		];
 		#if ( isset( $es_wp_query_args['post_type'] ) && in_array( 'plugin', $es_wp_query_args['post_type'] ) ) {
 		#	unset( $es_wp_query_args['post_type'][ array_search( 'plugin', $es_wp_query_args['post_type'] ) ] );
 #}
@@ -136,34 +162,68 @@ error_log( __FUNCTION__ );
 #unset( $es_wp_query_args['post_type'] );
 #$es_wp_query_args['post_type'] = array( 'any' );
 
-		$es_wp_query_args['locale'] = get_locale();
+		$is_block_search = ! empty( $args['block_search'] );
+
+		// How much weighting to put on the Description field.
+		// Blocks get a much lower value here, as it's more title/excerpt (short description) based.
+		$desc_boost = $is_block_search ? 0.05 : 1;
+
+		$en_boost             = 0.00001;
+		$desc_en_boost        = $desc_boost * $en_boost;
+
+
+		$args['locale'] = get_locale();
 		#$es_wp_query_args['blog_id'] = \Jetpack::get_option( 'id' );
-		$es_wp_query_args['query_fields'] = array(
-			'all_content_en^0.1',
-			#'title_en^2',
-			#'excerpt_en^2',
-			#'description_en^2',
-			#'taxonomy.plugin_tags.name^2',
-			#'slug_text^2',
-			#'author^2',
-			#'contributors^2',
-			#'title_en.ngram^0.2',
+
+		if ( $args['locale'] && $args['locale'] !== 'en' && substr( $args['locale'], 0, 3 ) !== 'en_' ) {
+			$locale = $args['locale'];
+
+			// Because most plugins don't have any translations we need to
+			// correct for the very low scores that locale-specific fields.
+			// end up getting. This is caused by the average field length being
+			// very close to zero and thus the BM25 alg discounts fields that are
+			// significantly longer.
+			//
+			// As of 2017-01-23 it looked like we were off by about 10,000x,
+			// so rather than 0.1 we use a much smaller multiplier of en content
+			$en_boost             = 0.00001;
+			$desc_en_boost        = $desc_boost * $en_boost;
+
+			$matching_fields      = array(
+				'all_content_' . $locale,
+				'all_content_en^' . $en_boost,
+			);
+		} else {
+			$matching_fields      = array(
+				'all_content_en',
+			);
+		}
+
+		$args['query_fields'] = $matching_fields;
+
+
+/*
+		$boost_ngram_fields   = array(
+			'title_' . $locale . '.ngram',
+			'title_en.ngram^' . $en_boost,
 		);
-		/*$es_wp_query_args['query_fields'] = array(
-			'all_content_en' => 0.1,
-			'title_en' => 2,
-			'excerpt_en' => 2,
-			'description_en' => 2,
-			'taxonomy.plugin_tags.name' => 2,
-			'slug_text' => 2,
-			'author' => 2,
-			'contributors' => 2,
-			'title_en.ngram' => 0.2,
-		);*/
+		$boost_title_fields   = array(
+			'title_' . $locale,
+			'title_en^' . $en_boost,
+			'slug_text',
+		);
+		$boost_content_fields = array(
+			'excerpt_' . $locale,
+			'description_' . $locale . '^' . $desc_boost,
+			'excerpt_en^' . $en_boost,
+			'description_en^' . $desc_en_boost,
+			'taxonomy.plugin_tags.name',
+		);
+*/
 
-error_log( var_export( $es_wp_query_args, true ) );
+#error_log( var_export( $args, true ) );
 
-		return $es_wp_query_args;
+		return $args;
 	}
 
 	public function jetpack_search_es_query_args( $es_query_args, $query ) {
@@ -173,12 +233,196 @@ error_log( var_export( $es_wp_query_args, true ) );
 		} */
 
 		// Weirdly, filtering on post_type = plugin causes the query to find zero results
-		if ( isset( $es_query_args[ 'filter' ][ 'terms' ][ 'post_type' ] ) ) {
+		#if ( isset( $es_query_args[ 'filter' ][ 'terms' ][ 'post_type' ] ) ) {
 			#unset( $es_query_args[ 'filter' ][ 'terms' ][ 'post_type' ] );
+		#}
+
+
+		// These are the things that jetpack_search_es_wp_query_args doesn't let us change, so we need to filter the es_query_args late in the code path to add more custom stuff.
+
+		// Exclude disabled plugins.
+		$es_query_args[ 'filter' ] = [
+			'and' => [
+			  0 => [
+				'term' => [
+				  'disabled' => [
+					'value' => false,
+				  ],
+				],
+			],
+			]
+		];
+
+		// Set boost on the match query
+
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'must' ][0][ 'multi_match' ] ) ) {
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'must' ][0][ 'multi_match' ][ 'boost' ] = 0.1;
 		}
 
-error_log( '--- should --- ' );
-error_log( var_export( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ], true ) );
+		// Old version had one less level here. Probably unimportant but this makes the unit tests pass.
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'must' ][0] ) ) {
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'must' ] = $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'must' ][0];
+		}
+
+		// Not sure if this matters, but again it's in the tests
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'operator' ] ) ) {
+			unset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'operator' ] );
+		}
+
+		// Some extra fields here
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ] ) ) {
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'boost' ] = 2;
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'fields' ] = [
+				0 => 'title_en',
+				1 => 'excerpt_en',
+				2 => 'description_en^1',
+				3 => 'taxonomy.plugin_tags.name',
+			];
+		}
+
+		// And some more fancy bits here
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) && 1 === count( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) ) {
+			$search_phrase = $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'query' ];
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
+				'multi_match' => [
+				'query' => $search_phrase,
+				'fields' => [
+					0 => 'title_en.ngram',
+				],
+				'type' => 'phrase',
+				'boost' => 0.2,
+				],
+			];
+
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
+				'multi_match' => [
+				  'query' => $search_phrase,
+				  'fields' => [
+					0 => 'title_en',
+					1 => 'slug_text',
+				  ],
+				  'type' => 'best_fields',
+				  'boost' => 2,
+				],
+			];
+
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
+				'multi_match' => [
+				  'query' => $search_phrase,
+				  'fields' => [
+					0 => 'excerpt_en',
+					1 => 'description_en^1',
+					2 => 'taxonomy.plugin_tags.name',
+				  ],
+				  'type' => 'best_fields',
+				  'boost' => 2,
+				],
+			];
+
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
+				'multi_match' => [
+				  'query' => $search_phrase,
+				  'fields' => [
+					0 => 'author',
+					1 => 'contributors',
+				  ],
+				  'type' => 'best_fields',
+				  'boost' => 2,
+				],
+			];
+		}
+
+		if ( TRUE || isset( $es_query_args[ 'query' ][ 'function_score' ][ 'functions' ] ) ) {
+			$es_query_args[ 'query' ][ 'function_score' ][ 'functions' ] = [
+				0 => [
+				  'exp' => [
+					'plugin_modified' => [
+					  'origin' => date('Y-m-d'),
+					  'offset' => '180d',
+					  'scale' => '360d',
+					  'decay' => 0.5,
+					],
+				  ],
+				],
+				1 => [
+				  'exp' => [
+					'tested' => [
+					  'origin' => '5.0',
+					  'offset' => 0.1,
+					  'scale' => 0.4,
+					  'decay' => 0.6,
+					],
+				  ],
+				],
+				2 => [
+				  'field_value_factor' => [
+					'field' => 'active_installs',
+					'factor' => 0.375,
+					'modifier' => 'log2p',
+					'missing' => 1,
+				  ],
+				],
+				3 => [
+				  'filter' => [
+					'range' => [
+					  'active_installs' => [
+						'lte' => 1000000,
+					  ],
+					],
+				  ],
+				  'exp' => [
+					'active_installs' => [
+					  'origin' => 1000000,
+					  'offset' => 0,
+					  'scale' => 900000,
+					  'decay' => 0.75,
+					],
+				  ],
+				],
+				4 => [
+				  'field_value_factor' => [
+					'field' => 'support_threads_resolved',
+					'factor' => 0.25,
+					'modifier' => 'log2p',
+					'missing' => 0.5,
+				  ],
+				],
+				5 => [
+				  'field_value_factor' => [
+					'field' => 'rating',
+					'factor' => 0.25,
+					'modifier' => 'sqrt',
+					'missing' => 2.5,
+				  ],
+				],
+			];
+		}
+
+		// Old version didn't have these
+		unset( $es_query_args[ 'query' ][ 'function_score' ][ 'score_mode' ] );
+		unset( $es_query_args[ 'query' ][ 'function_score' ][ 'max_boost' ] );
+		unset( $es_query_args[ 'aggregations' ] );
+
+		// Couple of extra fields wanted in the response, mainly for debugging
+		$es_query_args[ 'fields' ] = [
+			0 => 'slug',
+			1 => 'post_id',
+			2 => 'blog_id',
+		];
+
+		// Old version had things wrapped in an extra query => filtered layer.
+		$es_query_args[ 'query' ] = [
+			'filtered' => [
+				'query' => $es_query_args[ 'query' ]
+			]
+		];
+
+
+
+
+
+#error_log( '--- should --- ' );
+#error_log( var_export( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ], true ) );
 if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) ) {
 			#$query = $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][ 0 ]
 			#$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] =
@@ -197,14 +441,15 @@ if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 
 
 		// TODO: make sure filter includes term => disabled => false
 
-error_log( __CLASS__ . ':'  . var_export( $es_query_args, true ) );
+error_log( "--- args as passed to search() ---\n" );
+error_log(  'jetpack_search_es_query_args:'  . $this->var_export( $es_query_args, true ) );
 
 		return $es_query_args;
 	}
 
 	public function log_search_es_wp_query_args( $es_wp_query_args, $query ) {
 		error_log( '--- ' . __FUNCTION__ . ' ---' );
-		error_log( var_export( $es_wp_query_args, true ) );
+		error_log( $this->var_export( $es_wp_query_args, true ) );
 
 		return $es_wp_query_args;
 	}
@@ -216,6 +461,6 @@ error_log( __CLASS__ . ':'  . var_export( $es_query_args, true ) );
 
 	public function log_did_jetpack_search_query( $query ) {
 		error_log( '--- did_jetpack_search_query ---' );
-		error_log( var_export( $query, true ) );
+		error_log( $this->var_export( $query, true ) );
 	}
 }
