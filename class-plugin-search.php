@@ -11,6 +11,14 @@ class Plugin_Search {
 	// Set this to true to disable the new class and use the old jetpack-search.php code.
 	const USE_OLD_SEARCH = false;
 
+	// Internal state
+	protected $locale;
+	protected $is_block_search;
+	protected $is_english;
+	protected $en_boost;
+	protected $desc_boost;
+	protected $desc_en_boost;
+
 	/**
 	 * Fetch the instance of the Plugin_Search class.
 	 *
@@ -179,20 +187,18 @@ class Plugin_Search {
 		$this->en_boost             = 0.00001;
 		$this->desc_en_boost        = $this->desc_boost * $this->en_boost;
 
+		// We need to be locale aware for this
+		$this->locale = strtolower( substr( get_locale(), 0, 2 ) );
+		$this->is_english = ( !$this->locale || 'en' === $this->locale );
 
-		$args['locale'] = get_locale();
-		#$es_wp_query_args['blog_id'] = \Jetpack::get_option( 'id' );
-
-		if ( $args['locale'] && $args['locale'] !== 'en' && substr( $args['locale'], 0, 3 ) !== 'en_' ) {
-			$locale = $args['locale'];
-
+		if ( $this->is_english ) {
 			$matching_fields      = array(
-				'all_content_' . $locale,
-				'all_content_en^' . $this->en_boost,
+				'all_content_en',
 			);
 		} else {
 			$matching_fields      = array(
-				'all_content_en',
+				'all_content_' . $this->locale,
+				'all_content_en^' . $this->en_boost,
 			);
 		}
 
@@ -266,22 +272,19 @@ class Plugin_Search {
 			unset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'operator' ] );
 		}
 
-		// We need to be locale aware for this
-		$locale = get_locale();
-		$is_english = ( !$locale || 'en' === strtolower( substr( $locale, 0, 2 ) ) );
 
 		// Some extra fields here
 		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ] ) ) {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'boost' ] = 2;
-			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'fields' ] = ( $is_english ? [
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'fields' ] = ( $this->is_english ? [
 				0 => 'title_en',
 				1 => 'excerpt_en',
 				2 => 'description_en^1',
 				3 => 'taxonomy.plugin_tags.name',
 			] : [
-				'title_' . $locale,
-				'excerpt_' . $locale,
-				'description_' . $locale . '^' . $this->desc_boost,
+				'title_' . $this->locale,
+				'excerpt_' . $this->locale,
+				'description_' . $this->locale . '^' . $this->desc_boost,
 				'title_en^' . $this->en_boost,
 				'excerpt_en^' . $this->en_boost,
 				'description_en^' . $this->desc_en_boost,
@@ -296,10 +299,10 @@ class Plugin_Search {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
 				'multi_match' => [
 				'query' => $search_phrase,
-				'fields' => ( $is_english ? [
+				'fields' => ( $this->is_english ? [
 					0 => 'title_en.ngram',
 				] : [
-					'title_' . $locale . '.ngram',
+					'title_' . $this->locale . '.ngram',
 					'title_en.ngram^' . $this->en_boost,
 				] ),
 				'type' => 'phrase',
@@ -310,10 +313,14 @@ class Plugin_Search {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
 				'multi_match' => [
 				  'query' => $search_phrase,
-				  'fields' => [
+				  'fields' => ( $this->is_english ? [
 					0 => 'title_en',
 					1 => 'slug_text',
-				  ],
+				  ] : [
+					'title_' . $this->locale,
+					'title_en^' . $this->en_boost,
+					'slug_text',
+				  ] ),
 				  'type' => 'best_fields',
 				  'boost' => 2,
 				],
@@ -322,11 +329,16 @@ class Plugin_Search {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
 				'multi_match' => [
 				  'query' => $search_phrase,
-				  'fields' => ( $is_english ? [
+				  'fields' => ( $this->is_english ? [
 					0 => 'excerpt_en',
 					1 => 'description_en^1',
 					2 => 'taxonomy.plugin_tags.name',
 				  ] : [
+					'excerpt_' . $this->locale,
+					'description_' . $this->locale . '^' . $this->desc_boost,
+					'excerpt_en^' . $this->en_boost,
+					'description_en^' . $this->desc_en_boost,
+					'taxonomy.plugin_tags.name',
 				  ] ),
 				  'type' => 'best_fields',
 				  'boost' => 2,
