@@ -205,42 +205,12 @@ class Plugin_Search {
 		$args['query_fields'] = $matching_fields;
 
 
-/*
-		$boost_ngram_fields   = array(
-			'title_' . $locale . '.ngram',
-			'title_en.ngram^' . $en_boost,
-		);
-		$boost_title_fields   = array(
-			'title_' . $locale,
-			'title_en^' . $en_boost,
-			'slug_text',
-		);
-		$boost_content_fields = array(
-			'excerpt_' . $locale,
-			'description_' . $locale . '^' . $desc_boost,
-			'excerpt_en^' . $en_boost,
-			'description_en^' . $desc_en_boost,
-			'taxonomy.plugin_tags.name',
-		);
-*/
 
-#error_log( var_export( $args, true ) );
 
 		return $args;
 	}
 
 	public function jetpack_search_es_query_args( $es_query_args, $query ) {
-		/* if ( isset( $es_query_args[ 'blog_id' ] ) ) {
-			// Strange that convert_wp_es_to_es_args() uses get_current_blog_id() and not the jetpack blog ID
-			$es_query_args[ 'blog_id' ] = \Jetpack::get_option( 'id' );
-		} */
-
-		// Weirdly, filtering on post_type = plugin causes the query to find zero results
-		#if ( isset( $es_query_args[ 'filter' ][ 'terms' ][ 'post_type' ] ) ) {
-			#unset( $es_query_args[ 'filter' ][ 'terms' ][ 'post_type' ] );
-		#}
-
-
 		// These are the things that jetpack_search_es_wp_query_args doesn't let us change, so we need to filter the es_query_args late in the code path to add more custom stuff.
 
 		// Exclude disabled plugins.
@@ -443,32 +413,6 @@ class Plugin_Search {
 			]
 		];
 
-
-
-
-
-#error_log( '--- should --- ' );
-#error_log( var_export( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ], true ) );
-if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) ) {
-			#$query = $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][ 0 ]
-			#$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] =
-			#	[
-			#		[ 'multi_match' =>
-			#			[ 'query' =>
-			#	];
-		}
-
-		/*
-		$es_query_args[ 'filter' ][ 'and' ][] = array(
-			'term' => array(
-				'disabled' => array( 'value' => false )
-			)
-		); */
-
-		// TODO: make sure filter includes term => disabled => false
-
-error_log( "--- args as passed to search() ---\n" );
-error_log(  'jetpack_search_es_query_args:'  . $this->var_export( $es_query_args, true ) );
 
 		return $es_query_args;
 	}
