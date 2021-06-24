@@ -162,14 +162,22 @@ class Plugin_Search {
 #unset( $es_wp_query_args['post_type'] );
 #$es_wp_query_args['post_type'] = array( 'any' );
 
-		$is_block_search = ! empty( $args['block_search'] );
+		$this->is_block_search = ! empty( $args['block_search'] );
 
 		// How much weighting to put on the Description field.
 		// Blocks get a much lower value here, as it's more title/excerpt (short description) based.
-		$desc_boost = $is_block_search ? 0.05 : 1;
+		$this->desc_boost = $this->is_block_search ? 0.05 : 1;
 
-		$en_boost             = 0.00001;
-		$desc_en_boost        = $desc_boost * $en_boost;
+		// Because most plugins don't have any translations we need to
+		// correct for the very low scores that locale-specific fields.
+		// end up getting. This is caused by the average field length being
+		// very close to zero and thus the BM25 alg discounts fields that are
+		// significantly longer.
+		//
+		// As of 2017-01-23 it looked like we were off by about 10,000x,
+		// so rather than 0.1 we use a much smaller multiplier of en content
+		$this->en_boost             = 0.00001;
+		$this->desc_en_boost        = $this->desc_boost * $this->en_boost;
 
 
 		$args['locale'] = get_locale();
@@ -178,20 +186,9 @@ class Plugin_Search {
 		if ( $args['locale'] && $args['locale'] !== 'en' && substr( $args['locale'], 0, 3 ) !== 'en_' ) {
 			$locale = $args['locale'];
 
-			// Because most plugins don't have any translations we need to
-			// correct for the very low scores that locale-specific fields.
-			// end up getting. This is caused by the average field length being
-			// very close to zero and thus the BM25 alg discounts fields that are
-			// significantly longer.
-			//
-			// As of 2017-01-23 it looked like we were off by about 10,000x,
-			// so rather than 0.1 we use a much smaller multiplier of en content
-			$en_boost             = 0.00001;
-			$desc_en_boost        = $desc_boost * $en_boost;
-
 			$matching_fields      = array(
 				'all_content_' . $locale,
-				'all_content_en^' . $en_boost,
+				'all_content_en^' . $this->en_boost,
 			);
 		} else {
 			$matching_fields      = array(
@@ -269,26 +266,42 @@ class Plugin_Search {
 			unset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'operator' ] );
 		}
 
+		// We need to be locale aware for this
+		$locale = get_locale();
+		$is_english = ( !$locale || 'en' === strtolower( substr( $locale, 0, 2 ) ) );
+
 		// Some extra fields here
 		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ] ) ) {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'boost' ] = 2;
-			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'fields' ] = [
+			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'fields' ] = ( $is_english ? [
 				0 => 'title_en',
 				1 => 'excerpt_en',
 				2 => 'description_en^1',
 				3 => 'taxonomy.plugin_tags.name',
-			];
+			] : [
+				'title_' . $locale,
+				'excerpt_' . $locale,
+				'description_' . $locale . '^' . $this->desc_boost,
+				'title_en^' . $this->en_boost,
+				'excerpt_en^' . $this->en_boost,
+				'description_en^' . $this->desc_en_boost,
+				'taxonomy.plugin_tags.name',
+			] );
 		}
 
 		// And some more fancy bits here
 		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) && 1 === count( $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ] ) ) {
 			$search_phrase = $es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][0][ 'multi_match' ][ 'query' ];
+
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
 				'multi_match' => [
 				'query' => $search_phrase,
-				'fields' => [
+				'fields' => ( $is_english ? [
 					0 => 'title_en.ngram',
-				],
+				] : [
+					'title_' . $locale . '.ngram',
+					'title_en.ngram^' . $this->en_boost,
+				] ),
 				'type' => 'phrase',
 				'boost' => 0.2,
 				],
@@ -309,11 +322,12 @@ class Plugin_Search {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'query' ][ 'bool' ][ 'should' ][] = [
 				'multi_match' => [
 				  'query' => $search_phrase,
-				  'fields' => [
+				  'fields' => ( $is_english ? [
 					0 => 'excerpt_en',
 					1 => 'description_en^1',
 					2 => 'taxonomy.plugin_tags.name',
-				  ],
+				  ] : [
+				  ] ),
 				  'type' => 'best_fields',
 				  'boost' => 2,
 				],
