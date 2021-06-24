@@ -165,6 +165,13 @@ class Plugin_Search {
 		];
 		#if ( isset( $es_wp_query_args['post_type'] ) && in_array( 'plugin', $es_wp_query_args['post_type'] ) ) {
 		#	unset( $es_wp_query_args['post_type'][ array_search( 'plugin', $es_wp_query_args['post_type'] ) ] );
+
+		// Block Search.
+		$this->is_block_search = !empty( $query->query['block_search'] );
+		if ( $this->is_block_search ) {
+			$args['block_search'] = $query->query['block_search'];
+		}
+
 #}
 #
 #unset( $es_wp_query_args['post_type'] );
@@ -225,6 +232,17 @@ class Plugin_Search {
 			],
 			]
 		];
+
+		if ( $this->is_block_search ) {
+			// Limit to the Block Tax.
+			$es_query_args['filter']['and'][] = [
+				'term' => [
+					'taxonomy.plugin_section.name' => [
+						'value' => 'block'
+					]
+				]
+			];
+		}
 
 		// Set boost on the match query
 
