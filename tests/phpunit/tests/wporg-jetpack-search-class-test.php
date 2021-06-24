@@ -337,6 +337,8 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 
 	/**
 	 * @dataProvider data_wp_es_to_es_args
+	 * Note: doesn't actually require the function. This test only makes sense with the old class, and filter__posts_request is a way to detect it.
+	 * @requires function Jetpack_Search::filter__posts_request
 	 */
 	public function test_convert_wp_es_to_es_args( $input, $expected ) {
 		$actual = Jetpack_Search::instance()->convert_wp_es_to_es_args( $input );
