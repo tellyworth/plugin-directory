@@ -560,7 +560,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 						  'multi_match' => [
 							'query' => 'una búsqueda de locale',
 							'fields' => [
-							  0 => 'all_content_ES_es',
+							  0 => 'all_content_es',
 							  1 => 'all_content_en^1.0E-5',
 							],
 							'boost' => 0.1,
@@ -572,9 +572,9 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							'multi_match' => [
 							  'query' => 'una búsqueda de locale',
 							  'fields' => [
-								0 => 'title_ES_es',
-								1 => 'excerpt_ES_es',
-								2 => 'description_ES_es^1',
+								0 => 'title_es',
+								1 => 'excerpt_es',
+								2 => 'description_es^1',
 								3 => 'title_en^1.0E-5',
 								4 => 'excerpt_en^1.0E-5',
 								5 => 'description_en^1.0E-5',
@@ -588,7 +588,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							'multi_match' => [
 							  'query' => 'una búsqueda de locale',
 							  'fields' => [
-								0 => 'title_ES_es.ngram',
+								0 => 'title_es.ngram',
 								1 => 'title_en.ngram^1.0E-5',
 							  ],
 							  'type' => 'phrase',
@@ -599,7 +599,7 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							'multi_match' => [
 							  'query' => 'una búsqueda de locale',
 							  'fields' => [
-								0 => 'title_ES_es',
+								0 => 'title_es',
 								1 => 'title_en^1.0E-5',
 								2 => 'slug_text',
 							  ],
@@ -611,8 +611,8 @@ class TestJetpackSearchClass extends WP_UnitTestCase {
 							'multi_match' => [
 							  'query' => 'una búsqueda de locale',
 							  'fields' => [
-								0 => 'excerpt_ES_es',
-								1 => 'description_ES_es^1',
+								0 => 'excerpt_es',
+								1 => 'description_es^1',
 								2 => 'excerpt_en^1.0E-5',
 								3 => 'description_en^1.0E-5',
 								4 => 'taxonomy.plugin_tags.name',
