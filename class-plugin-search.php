@@ -106,18 +106,6 @@ class Plugin_Search {
 
 	public function jetpack_search_es_wp_query_args( $args, $query ) {
 
-		$args[ 'filter' ] = [
-			'and' => [
-			  0 => [
-				'term' => [
-				  'disabled' => [
-					'value' => false,
-				  ],
-				],
-			  ],
-			]
-		];
-
 		// Block Search.
 		$this->is_block_search = !empty( $query->query['block_search'] );
 		if ( $this->is_block_search ) {
