@@ -95,26 +95,6 @@ class Plugin_Search {
 		if ((bool)$return) return $export; else echo $export;
 	}
 
-/*
-       $decay_params = apply_filters(
-            'jetpack_search_recency_score_decay',
-            array(
-                'origin' => date( 'Y-m-d' ),
-                'scale'  => '360d',
-                'decay'  => 0.9,
-            ),
-            $args
-        );
-
-	public function jetpack_search_recency_score_decay( $decay, $query ) {
-
-		$decay['decay'] = 0.5;
-
-		return $decay;
-	}
- */
-
-
 	public function option_jetpack_active_modules( $modules ) {
 		if ( self::USE_OLD_SEARCH ) {
 			if ( $i = array_search( 'search', $modules ) )
@@ -140,17 +120,6 @@ class Plugin_Search {
 	}
 
 	public function jetpack_search_es_wp_query_args( $args, $query ) {
-		/*$es_wp_query_args[ 'filters' ][] =
-			array (
-			  'term' =>
-			  array (
-				'disabled' =>
-				array (
-				  'value' => false,
-				),
-			  ),
-			);
-		*/
 
 		$args[ 'filter' ] = [
 			'and' => [
@@ -163,21 +132,12 @@ class Plugin_Search {
 			  ],
 			]
 		];
-		#if ( isset( $es_wp_query_args['post_type'] ) && in_array( 'plugin', $es_wp_query_args['post_type'] ) ) {
-		#	unset( $es_wp_query_args['post_type'][ array_search( 'plugin', $es_wp_query_args['post_type'] ) ] );
 
 		// Block Search.
 		$this->is_block_search = !empty( $query->query['block_search'] );
 		if ( $this->is_block_search ) {
 			$args['block_search'] = $query->query['block_search'];
 		}
-
-#}
-#
-#unset( $es_wp_query_args['post_type'] );
-#$es_wp_query_args['post_type'] = array( 'any' );
-
-		$this->is_block_search = ! empty( $args['block_search'] );
 
 		// How much weighting to put on the Description field.
 		// Blocks get a much lower value here, as it's more title/excerpt (short description) based.
