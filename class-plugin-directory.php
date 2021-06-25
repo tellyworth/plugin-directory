@@ -82,10 +82,6 @@ class Plugin_Directory {
 		add_filter( 'wp_insert_post_data', array( $this, 'filter_wp_insert_post_data' ), 10, 2 );
 
 		add_filter( 'jetpack_active_modules', function( $modules ) {
-			#// Disable Jetpack Search
-			#if ( false !== ( $i = array_search( 'search', $modules ) ) ) {
-			#	unset( $modules[$i] );
-			#}
 			// Make sure Jetpack Search is enabled
 			$modules[] = 'search';
 
@@ -566,22 +562,6 @@ class Plugin_Directory {
 		add_filter( 'single_post_title', array( $this, 'translate_post_title' ), 1, 2 );
 		add_filter( 'get_the_excerpt', array( $this, 'translate_post_excerpt' ), 1, 2 );
 
-		// Instantiate our copy of the Jetpack_Search class.
-		if ( false && // TODO: disabled while we're testing the new search class
-			class_exists( 'Jetpack' ) &&
-			\Jetpack::get_option( 'id' ) && // Don't load in Meta Environments
-			! class_exists( 'Jetpack_Search' ) &&
-			(
-				// Don't run the ES query if we're going to redirect to the pretty search URL
-				! isset( $_GET['s'] )
-			||
-				// But load it for the query-plugins REST API endpoint, for simpler debugging
-				( false !== strpos( $_SERVER['REQUEST_URI'], 'wp-json/plugins/v1/query-plugins' ) )
-			)
-		) {
-			require_once __DIR__ . '/libs/site-search/jetpack-search.php';
-			\Jetpack_Search::instance();
-		}
 	}
 
 	/**
@@ -1292,11 +1272,9 @@ class Plugin_Directory {
 
 		// We've disabled WordPress's default 404 redirects, so we'll handle them ourselves.
 		if ( is_404() ) {
-			error_log( '404 redirect!' );
 
 			// [1] => plugins [2] => example-plugin-name [3..] => random().
 			$path = explode( '/', $_SERVER['REQUEST_URI'] );
-			error_log( var_export( $path, true ) );
 
 			if ( 'tags' === $path[2] ) {
 				if ( isset( $path[3] ) && ! empty( $path[3] ) ) {
