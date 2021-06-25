@@ -279,7 +279,7 @@ class Plugin_Search {
 			];
 		}
 
-		if ( TRUE || isset( $es_query_args[ 'query' ][ 'function_score' ][ 'functions' ] ) ) {
+		if ( isset( $es_query_args[ 'query' ][ 'function_score' ][ 'functions' ] ) ) {
 			$es_query_args[ 'query' ][ 'function_score' ][ 'functions' ] = [
 				0 => [
 				  'exp' => [
