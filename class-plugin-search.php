@@ -43,24 +43,9 @@ class Plugin_Search {
 		if ( isset( $_GET['s'] ) )
 			return false;
 
-		error_log( __CLASS__ . ' __construct()' );
-		error_log( '$this? ' . is_object( $this ) );
 		add_action( 'init', array( $this, 'init' ) );
 
 		return false;
-
-		// Filters needed regardless of whether we're using old or new search
-		add_filter( 'option_jetpack_active_modules', array( $this, 'option_jetpack_active_modules' ) );
-
-		// $es_wp_query_args = apply_filters( 'jetpack_search_es_wp_query_args', $es_wp_query_args, $query );
-		add_filter( 'jetpack_search_es_wp_query_args', array( $this, 'log_search_es_wp_query_args' ), 99999, 2 );
-
-		add_filter( 'jetpack_search_abort', array( $this, 'log_jetpack_search_abort' ) );
-
-		#add_filter( 'jetpack_get_module', function($mod, $slug) { if ( 'search' == $slug ) { error_log( 'jetpack_get_module'); error_log( var_export( func_get_args(), true ) ); } }, 10, 2 );
-		add_filter( 'jetpack_get_module', array( $this, 'jetpack_get_module' ), 10, 2 );
-
-		add_filter( 'did_jetpack_search_query', array( $this, 'log_did_jetpack_search_query' ) );
 	}
 
 	public function init() {
@@ -401,7 +386,6 @@ class Plugin_Search {
 
 		return $es_wp_query_args;
 	}
-// jetpack_search_abort
 
 	public function log_jetpack_search_abort( $reason ) {
 		error_log( "--- jetpack_search_abort $reason ---" );
