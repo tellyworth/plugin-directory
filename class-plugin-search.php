@@ -1,6 +1,10 @@
 <?php
 namespace WordPressdotorg\Plugin_Directory;
 
+// Hmm
+add_filter( 'option_has_jetpack_search_product', '__return_true' );
+
+
 /**
  ** Override Jetpack Search class with special features for the Plugin Directory
  **
@@ -9,7 +13,7 @@ namespace WordPressdotorg\Plugin_Directory;
 class Plugin_Search {
 
 	// Set this to true to disable the new class and use the old jetpack-search.php code.
-	const USE_OLD_SEARCH = false;
+	const USE_OLD_SEARCH = true;
 
 	// Internal state
 	protected $locale;
@@ -49,6 +53,7 @@ class Plugin_Search {
 	}
 
 	public function init() {
+
 		if ( self::USE_OLD_SEARCH ) {
 			// Instantiate our copy of the Jetpack_Search class.
 			if ( class_exists( 'Jetpack' ) && ! class_exists( 'Jetpack_Search' )
@@ -56,14 +61,29 @@ class Plugin_Search {
 				&& ! isset( $_GET['s'] ) ) { // Don't run the ES query if we're going to redirect to the pretty search URL
 					require_once __DIR__ . '/libs/site-search/jetpack-search.php';
 					\Jetpack_Search::instance();
+					error_log( "loaded instance: ".$this->var_export( \Jetpack_Search::instance(), true ) );
+			} else {
+				error_log( "not loading site-search because" );
+				error_log( 'class_exists(jetpack) ' . $this->var_export( class_exists( 'Jetpack' ), true ) );
+				error_log( 'class_exists(jetpack_search) ' . $this->var_export( class_exists( 'Jetpack_Search' ), true ) );
 			}
 		} else {
+			add_filter( 'jetpack_get_module', array( $this, 'jetpack_get_module' ), 10, 2 );
+			add_filter( 'option_jetpack_active_modules', array( $this, 'option_jetpack_active_modules' ), 10, 1 );
+			add_filter( 'pre_option_has_jetpack_search_product', array( $this, 'option_has_jetpack_search_product' ), 10, 1 );
+
+			add_filter( 'jetpack_search_abort', array( $this, 'jetpack_search_abort' ) );
+
 			require_once( ABSPATH . 'wp-content/plugins/jetpack/modules/search/class.jetpack-search.php' );
 			require_once( ABSPATH . 'wp-content/plugins/jetpack/modules/search/class.jetpack-search-helpers.php' );
 			// $es_query_args = apply_filters( 'jetpack_search_es_query_args', $es_query_args, $query );
 			//
 			add_filter( 'jetpack_search_es_wp_query_args', array( $this, 'jetpack_search_es_wp_query_args' ), 10, 2 );
 			add_filter( 'jetpack_search_es_query_args', array( $this, 'jetpack_search_es_query_args' ), 10, 2 );
+
+			\Jetpack_Search::instance()->setup();
+			error_log( $this->var_export( \Jetpack_Search::instance(), true ) );
+			error_log( "supports search " . $this->var_export( \Jetpack_Search::instance()->is_search_supported(), true ) );
 		}
 
 	}
@@ -91,6 +111,14 @@ class Plugin_Search {
 		return array_unique( $modules );
 	}
 
+	public function option_has_jetpack_search_product( $option ) {
+		error_log( __FUNCTION__ );
+		if ( !self::USE_OLD_SEARCH ) {
+			return true;
+		}
+		return $option;
+	}
+
 	/* Make sure the search module is available regardless of Jetpack plan.
 	 * This works because search indexes were manually created for w.org.
 	 */
@@ -101,6 +129,7 @@ class Plugin_Search {
 			}
 		}
 
+		error_log( __FUNCTION__ . $this->var_export( $module, true ) );
 		return $module;
 	}
 
@@ -364,6 +393,9 @@ class Plugin_Search {
 			]
 		];
 
+		#error_log( $this->var_export( $es_query_args, true ) );
+		error_log( __FILE__ );
+		error_log( __FUNCTION__ );
 
 		return $es_query_args;
 	}
