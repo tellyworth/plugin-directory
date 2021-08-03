@@ -60,6 +60,9 @@ class Plugin_Directory {
 		// Cron tasks.
 		new Jobs\Manager();
 
+		// Search
+		Plugin_Search::instance();
+
 		// Add upload size limit to limit plugin ZIP file uploads to 10M
 		add_filter( 'upload_size_limit', function( $size ) {
 			return 10 * MB_IN_BYTES;
@@ -79,10 +82,8 @@ class Plugin_Directory {
 		add_filter( 'wp_insert_post_data', array( $this, 'filter_wp_insert_post_data' ), 10, 2 );
 
 		add_filter( 'jetpack_active_modules', function( $modules ) {
-			// Disable Jetpack Search
-			if ( false !== ( $i = array_search( 'search', $modules ) ) ) {
-				unset( $modules[$i] );
-			}
+			// Enable Jetpack Search
+			#$modules[] = 'search';
 
 			// Disable Jetpack Sitemaps on Rosetta sites.
 			if ( !empty( $GLOBALS['rosetta'] ) ) {
@@ -91,7 +92,7 @@ class Plugin_Directory {
 				}
 			}
 
-			return $modules;
+			return array_unique( $modules );
 		} );
 
 /*
@@ -561,22 +562,6 @@ class Plugin_Directory {
 		add_filter( 'single_post_title', array( $this, 'translate_post_title' ), 1, 2 );
 		add_filter( 'get_the_excerpt', array( $this, 'translate_post_excerpt' ), 1, 2 );
 
-		// Instantiate our copy of the Jetpack_Search class.
-		if (
-			class_exists( 'Jetpack' ) &&
-			\Jetpack::get_option( 'id' ) && // Don't load in Meta Environments
-			! class_exists( 'Jetpack_Search' ) &&
-			(
-				// Don't run the ES query if we're going to redirect to the pretty search URL
-				! isset( $_GET['s'] )
-			||
-				// But load it for the query-plugins REST API endpoint, for simpler debugging
-				( false !== strpos( $_SERVER['REQUEST_URI'], 'wp-json/plugins/v1/query-plugins' ) )
-			)
-		) {
-			require_once __DIR__ . '/libs/site-search/jetpack-search.php';
-			\Jetpack_Search::instance();
-		}
 	}
 
 	/**
@@ -923,7 +908,7 @@ class Plugin_Directory {
 		}
 
 		// Allow anyone to view a closed plugin directly from its page. It won't show in search results or lists.
-		if ( $wp_query->is_main_query() && ! empty( $wp_query->query_vars['name'] ) ) {
+		if ( $wp_query->is_main_query() && ! empty( $wp_query->query_vars['name'] ) && ! empty( $wp_query->query_vars['post_status'] ) ) {
 			$wp_query->query_vars['post_status']   = (array) $wp_query->query_vars['post_status'];
 			$wp_query->query_vars['post_status'][] = 'closed';
 			$wp_query->query_vars['post_status'][] = 'disabled';
@@ -1681,9 +1666,7 @@ class Plugin_Directory {
 	 * @param int|string|\WP_Post $plugin_slug The slug of the plugin to retrieve.
 	 * @return \WP_Post|bool
 	 */
-	public static function get_plugin_post( $plugin_slug ) {
-		global $post;
-
+	public static function get_plugin_post( $plugin_slug = null ) {
 		if ( $plugin_slug instanceof \WP_Post ) {
 			return $plugin_slug;
 		}
@@ -1691,24 +1674,43 @@ class Plugin_Directory {
 		// Handle int $plugin_slug being passed. NOT numeric slugs
 		if (
 			is_int( $plugin_slug ) &&
-			( $post_obj = get_post( $plugin_slug ) ) &&
-			( $post_obj->ID === $plugin_slug )
+			( $post = get_post( $plugin_slug ) ) &&
+			( $post->ID === $plugin_slug )
 		) {
-			$post = $post_obj;
-			return $post_obj;
-		}
-
-		// Use the global $post object when it matches to avoid hitting the database.
-		if ( ! empty( $post ) && 'plugin' == $post->post_type && $plugin_slug == $post->post_name ) {
 			return $post;
 		}
 
+		// Use the global $post object when appropriate
+		if (
+			! empty( $GLOBALS['post']->post_type ) &&
+			'plugin' === $GLOBALS['post']->post_type
+		) {
+			// Default to the global object.
+			if ( is_null( $plugin_slug ) || 0 === $plugin_slug ) {
+				return get_post( $GLOBALS['post']->ID );
+			}
+
+			// Avoid hitting the database if it matches.
+			if ( $plugin_slug == $GLOBALS['post']->post_name ) {
+				return get_post( $GLOBALS['post']->ID );
+			}
+		}
+
 		$plugin_slug = sanitize_title_for_query( $plugin_slug );
+		if ( ! $plugin_slug ) {
+			return false;
+		}
 
-		if ( false !== ( $post_id = wp_cache_get( $plugin_slug, 'plugin-slugs' ) ) && ( $post = get_post( $post_id ) ) ) {
-			// We have a $post.
-		} else {
+		$post    = false;
+		$post_id = wp_cache_get( $plugin_slug, 'plugin-slugs' );
+		if ( 0 === $post_id ) {
+			// Unknown plugin slug.
+			return false;
+		} else if ( $post_id ) {
+			$post = get_post( $post_id );
+		}
 
+		if ( ! $post ) {
 			// get_post_by_slug();
 			$posts = get_posts( array(
 				'post_type'   => 'plugin',
